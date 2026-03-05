@@ -39,7 +39,7 @@ By default `BASE_DATA_DIR` in the notebook is set to `D:\BaiduNetdiskDownload\Se
 Download the pre-trained model folders (https://huggingface.co/JasonXF/SeFNO-model) and place them under:
 
 ```
-output/Paper_Experient/
+output/
 ```
 
 Each model folder should contain a `model/` sub-folder with a `*best*` checkpoint file and a `details/dataset_indices.pkl` file.
@@ -298,7 +298,7 @@ pip install -r requirement_linux.txt
 # 1. Train a model
 python 1_fno_1_0+_trainscript.py --exp_name baseline --n_modes 64 --epoch 100
 
-# 2. Run efficiency analysis experiments (via factory)
+# 2. Run efficiency analysis experiments (via factory, highly recommended)
 python 0_fno_1_0+_Efficiency_factory.py --epochs 50
 
 # 3. Check results in the output/ folder and experiment_summary.csv / efficiency_summary.csv

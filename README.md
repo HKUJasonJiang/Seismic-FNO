@@ -126,7 +126,7 @@ These cover a small, medium, and large FNO capacity range and serve as the prima
 | Series | Folder | Runs | Purpose |
 |--------|--------|:----:|---------|
 | **Test-Series** | `Test-Series (Test-1~10)/` | 10 | Hyper-parameter sweep across modes, layers, and hidden channels |
-| **Efficiency-Series** | `Efficiency-Series (E-Base, E-Test-1~15)/` | 16 | Study of training dataset size (number of GMs and scale factors) vs. model performance |
+| **Efficiency-Series** | `Efficiency-Series (E-Base, E-Test-1~14)/` | 15 | Study of training dataset size (number of GMs and scale factors) vs. model performance |
 
 ---
 

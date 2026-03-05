@@ -1,0 +1,15 @@
+# torch
+numpy
+matplotlib
+pandas
+h5py
+tqdm
+colorama
+scikit-learn
+tensorly
+opt_einsum
+configmypy
+pytest
+torchinfo
+seaborn
+triton

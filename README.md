@@ -16,15 +16,14 @@ A training framework for FNO-based seismic floor acceleration response predictio
 
 ## Quick Start — Assess Results (No Training)
 
+To quickly review pre-trained model predictions on the test set **without running any training**, use the included notebook `quick_inference.ipynb` (with results in it).
+
 ```
 git clone https://github.com/HKUJasonJiang/Seismic-FNO.git
 ```
-
-To quickly review pre-trained model predictions on the test set **without running any training**, use the included notebook `quick_inference.ipynb` (with results in it).
-
 ### 1. Download the Dataset
 
-Download the KNET seismic dataset and place (or symlink) it so that the following paths are accessible:
+Download the KNET seismic dataset (https://huggingface.co/datasets/JasonXF/SeFNO) and place it so that the following paths are accessible:
 
 ```
 <BASE_DATA_DIR>/MDOF/All_GMs/GMs_knet_3474_AF_57.h5
@@ -37,7 +36,7 @@ By default `BASE_DATA_DIR` in the notebook is set to `D:\BaiduNetdiskDownload\Se
 
 ### 2. Download Pre-trained Models
 
-Download the pre-trained model folders and place them under:
+Download the pre-trained model folders (https://huggingface.co/JasonXF/SeFNO-model) and place them under:
 
 ```
 output/Paper_Experient/

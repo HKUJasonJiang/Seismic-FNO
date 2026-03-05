@@ -50,7 +50,7 @@ Each model folder should contain a `model/` sub-folder with a `*best*` checkpoin
 
 Run all cells top-to-bottom. The notebook will:
 
-1. **List** all available models in `output/Paper_Experient/`
+1. **List** all available models in `output/`
 2. **Select** a model by index (edit `MODEL_INDEX` in Cell 4) or by name (`MODEL_NAME`)
 3. **Load** the held-out test-set indices that were saved during training
 4. **Run inference** on a random (or user-specified) subset of test samples

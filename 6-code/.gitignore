@@ -1,0 +1,20 @@
+# Runtime caches
+__pycache__/
+*.py[cod]
+
+# Training outputs and checkpoints
+**/results/runs/
+**/results/evaluation/
+**/results/compiled/
+**/logs/
+**/checkpoints/
+*.pt
+*.pth
+*.ckpt
+
+# Avoid nested local upstream clones
+shared/upstream/
+
+# Local machine artifacts
+.venv/
+*.log

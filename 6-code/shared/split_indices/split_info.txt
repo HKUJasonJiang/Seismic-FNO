@@ -1,0 +1,8 @@
+Canonical split: fixed 474-GM test + 3000-GM pool + 80/20 train/val
+Train GMs: 2400
+Val GMs: 600
+Test GMs: 474
+Train samples: 136800
+Val samples: 34200
+Test samples: 27018
+Scale count: 57

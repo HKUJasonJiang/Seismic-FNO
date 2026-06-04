@@ -1,0 +1,44 @@
+{
+  "F2": {
+    "paper_label": "F-2",
+    "type": "Frame",
+    "stories": 2,
+    "height_m": 6.0,
+    "filename": "Blg_F2_6m_IM7_st0.h5"
+  },
+  "F6": {
+    "paper_label": "F-6",
+    "type": "Frame",
+    "stories": 6,
+    "height_m": 18.0,
+    "filename": "Blg_F6_18m_IM7_st0.h5"
+  },
+  "F10": {
+    "paper_label": "F-10",
+    "type": "Frame",
+    "stories": 10,
+    "height_m": 30.0,
+    "filename": "Blg_F10_30m_IM7_st0.h5"
+  },
+  "FW10": {
+    "paper_label": "FW-10",
+    "type": "Frame-shear wall",
+    "stories": 10,
+    "height_m": 30.0,
+    "filename": "Blg_F10_30m_IM7_st1.h5"
+  },
+  "FW14": {
+    "paper_label": "FW-14",
+    "type": "Frame-shear wall",
+    "stories": 14,
+    "height_m": 42.0,
+    "filename": "Blg_F14_42m_IM7_st1.h5"
+  },
+  "FW17": {
+    "paper_label": "FW-17",
+    "type": "Frame-shear wall",
+    "stories": 17,
+    "height_m": 52.0,
+    "filename": "Blg_F17_52m_IM7_st1.h5"
+  }
+}

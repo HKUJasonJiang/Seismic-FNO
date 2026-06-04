@@ -2,4 +2,6 @@
 
 | Timestamp | File | Change | Reason | Compatibility Check |
 |---|---|---|---|---|
-
+| 2026-06-04 | `configs/O4_KR0_priority_plan.md`, `README.md` | Added priority plan making F-6/FW-14 upstream of final FEMA/FRS figures. | Correct critical path after advisor pointed out O5 final scenarios depend on multi-structure FNO outputs. | Documentation-only change; no scripts or results changed. |
+| 2026-06-04 | `configs/O4_KR0_protocol.md`, `configs/o4_structures.json`, `configs/server_run_notes.md`, `scripts/inspect_o4_data.py`, `scripts/train_o4_fno_large.py`, `README.md`, `configs/O4_KR0_priority_plan.md` | Reframed O4 as six-structure validation and added explicit single-HDF5 FNO-Large training workflow. | Advisor clarified O4 has six experiments and should be completed before returning to detailed O5 planning. Old implicit `Data/fno` directory workflow was unsafe for multi-structure runs. | Scripts are additive; they do not modify raw HDF5 data. Data schema was read-only checked for all six IM7 target files. |
+| 2026-06-04 | `scripts/collect_o4_results.py`, `.codex/project-manage.md`, `.codex/progress-dashboard.md` | Added O4 result collector and updated project critical path to full six-structure O4 before detailed O5. | Remove residual F-6/FW-14-only wording from active management docs. | `train_o4_fno_large.py` and `inspect_o4_data.py` pass `py_compile`; collector is additive and runs after summaries exist. |

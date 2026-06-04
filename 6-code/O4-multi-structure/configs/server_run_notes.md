@@ -3,6 +3,12 @@
 **Date**: 2026-06-04  
 **Purpose**: Run six FNO-Large multi-structure experiments before returning to O5 FEMA/FRS details.
 
+For the full handoff version, use:
+
+```text
+6-code/O4-multi-structure/configs/server_takeover_o4.md
+```
+
 ---
 
 ## 1. Environment Check
@@ -76,4 +82,3 @@ Outputs:
 ```
 
 Each structure folder contains `config.json`, `training_log.csv`, `checkpoints/`, and `summary.json`.
-

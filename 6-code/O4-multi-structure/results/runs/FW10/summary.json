@@ -1,0 +1,31 @@
+{
+  "structure_id": "FW10",
+  "paper_label": "FW-10",
+  "type": "Frame-shear wall",
+  "stories": 10,
+  "height_m": 30.0,
+  "best_val_mse": 0.16215763401559455,
+  "best_epoch": 14,
+  "test_mse": 0.16460282246249414,
+  "test_pfa_mse_g2": 0.005388710370679021,
+  "test_metrics": {
+    "mse": 0.16460282246249414,
+    "rmse": 0.40571273391710805,
+    "mae": 0.22392429718921952,
+    "r2": 0.8635933451923309,
+    "pfa_mse_g2": 0.005388710370679021,
+    "pfa_rmse_g": 0.07340783589426282,
+    "pfa_mae_g": 0.04851515808997796,
+    "pfa_r2": 0.9342427538878497,
+    "loss": 0.16467881147508268
+  },
+  "train_time_s": 6145.706531047821,
+  "peak_gpu_gb": 48.92295026779175,
+  "best_checkpoint": "6-code/O4-multi-structure/results/runs/FW10/checkpoints/FNO-Large_FW10_best.pt",
+  "last_checkpoint": "6-code/O4-multi-structure/results/runs/FW10/checkpoints/FNO-Large_FW10_last.pt",
+  "config": "6-code/O4-multi-structure/results/runs/FW10/config.json",
+  "training_log_csv": "6-code/O4-multi-structure/results/runs/FW10/training_log.csv",
+  "training_console_log": "6-code/O4-multi-structure/results/runs/FW10/training_console.log",
+  "training_curves_png": "6-code/O4-multi-structure/results/runs/FW10/figures/training_curves.png",
+  "test_metrics_json": "6-code/O4-multi-structure/results/runs/FW10/test_metrics.json"
+}

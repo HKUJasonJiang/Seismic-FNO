@@ -1,0 +1,30 @@
+{
+  "structure_id": "F2",
+  "paper_label": "F-2",
+  "type": "Frame",
+  "stories": 2,
+  "height_m": 6.0,
+  "best_val_mse": 0.06123424075596978,
+  "best_epoch": 23,
+  "test_mse": 0.06046682950178276,
+  "test_pfa_mse_g2": 0.0012595744337369516,
+  "test_metrics": {
+    "mse": 0.06046682950178276,
+    "rmse": 0.2459000396538861,
+    "mae": 0.13110206544402497,
+    "r2": 0.9258022313488555,
+    "pfa_mse_g2": 0.0012595744337369516,
+    "pfa_rmse_g": 0.035490483706719915,
+    "pfa_mae_g": 0.024128364011214022,
+    "pfa_r2": 0.9532259579571681,
+    "loss": 0.06040824701388677
+  },
+  "train_time_s": 6222.4764013290405,
+  "peak_gpu_gb": 48.92295026779175,
+  "best_checkpoint": "6-code/O4-multi-structure/results/runs/F2/checkpoints/FNO-Large_F2_best.pt",
+  "config": "6-code/O4-multi-structure/results/runs/F2/config.json",
+  "training_log_csv": "6-code/O4-multi-structure/results/runs/F2/training_log.csv",
+  "training_console_log": "6-code/O4-multi-structure/results/runs/F2/training_console.log",
+  "training_curves_png": "6-code/O4-multi-structure/results/runs/F2/figures/training_curves.png",
+  "test_metrics_json": "6-code/O4-multi-structure/results/runs/F2/test_metrics.json"
+}

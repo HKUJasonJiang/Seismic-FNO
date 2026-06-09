@@ -1,0 +1,38 @@
+{
+  "objective": "O4-multi-structure",
+  "structure_id": "F2",
+  "structure": {
+    "paper_label": "F-2",
+    "type": "Frame",
+    "stories": 2,
+    "height_m": 6.0,
+    "filename": "Blg_F2_6m_IM7_st0.h5"
+  },
+  "gm_path": "/home/jason/SesimicTransformerData/MDOF/All_GMs/GMs_knet_3474_AF_57.h5",
+  "building_h5": "/home/jason/SesimicTransformerData/MDOF/knet-250/Data/fno/Blg_F2_6m_IM7_st0.h5",
+  "seed": 42,
+  "epochs": 50,
+  "batch_size": 1024,
+  "lr": 0.001,
+  "weight_decay": 0.0001,
+  "scheduler_step": 20,
+  "scheduler_gamma": 0.5,
+  "split": "fixed_474_test_full_57_factors",
+  "architecture": {
+    "n_modes": 512,
+    "hidden_channels": 64,
+    "n_layers": 8,
+    "domain_padding": 0.1,
+    "projection_channel_ratio": 2
+  },
+  "params": {
+    "total": 8505793,
+    "trainable": 8505793
+  },
+  "artifacts": {
+    "training_log_csv": "6-code/O4-multi-structure/results/runs/F2/training_log.csv",
+    "training_console_log": "6-code/O4-multi-structure/results/runs/F2/training_console.log",
+    "training_curves_png": "6-code/O4-multi-structure/results/runs/F2/figures/training_curves.png",
+    "test_metrics_json": "6-code/O4-multi-structure/results/runs/F2/test_metrics.json"
+  }
+}

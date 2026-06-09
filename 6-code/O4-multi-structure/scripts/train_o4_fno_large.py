@@ -24,6 +24,11 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader, Dataset
 
+import matplotlib
+
+matplotlib.use("Agg")
+import matplotlib.pyplot as plt  # noqa: E402
+
 try:
     from tqdm import tqdm
 except ModuleNotFoundError:  # pragma: no cover
@@ -159,18 +164,64 @@ def run_epoch(
     return metrics
 
 
-def save_checkpoint(path: Path, model, optimizer, epoch: int, metrics: dict, config: dict) -> None:
+def save_checkpoint(path: Path, model, optimizer, epoch: int, metrics: dict, config: dict, scheduler=None) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     torch.save(
         {
             "epoch": epoch,
             "model_state_dict": model.state_dict(),
             "optimizer_state_dict": optimizer.state_dict(),
+            "scheduler_state_dict": scheduler.state_dict() if scheduler is not None else None,
             "metrics": metrics,
             "config": config,
         },
         path,
     )
+
+
+def log_line(message: str, log_file=None) -> None:
+    print(message)
+    if log_file is not None:
+        log_file.write(message + "\n")
+        log_file.flush()
+
+
+def save_training_curves(rows: list[dict[str, float]], path: Path) -> None:
+    if not rows:
+        return
+    path.parent.mkdir(parents=True, exist_ok=True)
+    epochs = [row["epoch"] for row in rows]
+
+    fig, axes = plt.subplots(1, 3, figsize=(15, 4.5), constrained_layout=True)
+    ax = axes[0]
+    ax.plot(epochs, [row["train_loss"] for row in rows], label="train")
+    ax.plot(epochs, [row["val_loss"] for row in rows], label="val")
+    ax.set_title("Loss")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("MSELoss")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    ax = axes[1]
+    ax.plot(epochs, [row["train_mse"] for row in rows], label="train")
+    ax.plot(epochs, [row["val_mse"] for row in rows], label="val")
+    ax.set_title("Response MSE")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("MSE")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    ax = axes[2]
+    ax.plot(epochs, [row["train_pfa_mse_g2"] for row in rows], label="train")
+    ax.plot(epochs, [row["val_pfa_mse_g2"] for row in rows], label="val")
+    ax.set_title("PFA MSE")
+    ax.set_xlabel("Epoch")
+    ax.set_ylabel("g^2")
+    ax.grid(True, alpha=0.3)
+    ax.legend()
+
+    fig.savefig(path, dpi=160)
+    plt.close(fig)
 
 
 def load_structures() -> dict:
@@ -242,22 +293,27 @@ def train_one_structure(name: str, meta: dict, split, args) -> dict:
             "projection_channel_ratio": 2,
         },
         "params": stats,
+        "artifacts": {
+            "training_log_csv": str(run_dir / "training_log.csv"),
+            "training_console_log": str(run_dir / "training_console.log"),
+            "training_curves_png": str(run_dir / "figures" / "training_curves.png"),
+            "test_metrics_json": str(run_dir / "test_metrics.json"),
+            "last_checkpoint": str(run_dir / "checkpoints" / f"FNO-Large_{name}_last.pt"),
+        },
     }
     (run_dir / "config.json").write_text(json.dumps(config, indent=2), encoding="utf-8")
 
     log_path = run_dir / "training_log.csv"
+    console_log_path = run_dir / "training_console.log"
+    curves_path = run_dir / "figures" / "training_curves.png"
     fieldnames = [
         "epoch",
+        "train_loss",
         "train_mse",
-        "train_rmse",
-        "train_mae",
-        "train_r2",
-        "train_pfa_rmse_g",
+        "train_pfa_mse_g2",
+        "val_loss",
         "val_mse",
-        "val_rmse",
-        "val_mae",
-        "val_r2",
-        "val_pfa_rmse_g",
+        "val_pfa_mse_g2",
         "lr",
         "epoch_s",
         "gpu_peak_gb",
@@ -265,14 +321,20 @@ def train_one_structure(name: str, meta: dict, split, args) -> dict:
     best_val = float("inf")
     best_epoch = 0
     best_path = run_dir / "checkpoints" / f"{model_name}_best.pt"
+    last_path = run_dir / "checkpoints" / f"{model_name}_last.pt"
     peak_gb = 0.0
     start = time.time()
+    curve_rows = []
 
-    print(f"\n=== O4 {name} / {meta['paper_label']} ===")
-    print(f"Building: {building_path}")
-    print(f"Train={len(split.train_indices):,}, Val={len(split.val_indices):,}, Test={len(split.test_indices):,}")
+    with console_log_path.open("w", encoding="utf-8") as console_log, log_path.open("w", newline="", encoding="utf-8") as f:
+        log_line(f"\n=== O4 {name} / {meta['paper_label']} ===", console_log)
+        log_line(f"Building: {building_path}", console_log)
+        log_line(f"GM: {gm_path}", console_log)
+        log_line(f"Train={len(split.train_indices):,}, Val={len(split.val_indices):,}, Test={len(split.test_indices):,}", console_log)
+        log_line(f"Parameters: total={stats['total']:,}, trainable={stats['trainable']:,}", console_log)
+        log_line(f"CSV log: {log_path}", console_log)
+        log_line(f"Curve PNG: {curves_path}", console_log)
 
-    with log_path.open("w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(f, fieldnames=fieldnames)
         writer.writeheader()
         for epoch in range(1, args.epochs + 1):
@@ -301,35 +363,35 @@ def train_one_structure(name: str, meta: dict, split, args) -> dict:
             epoch_s = time.time() - epoch_start
             gpu_peak = torch.cuda.max_memory_allocated() / 1024**3 if device == "cuda" else 0.0
             peak_gb = max(peak_gb, gpu_peak)
-            writer.writerow(
-                {
-                    "epoch": epoch,
-                    "train_mse": train_metrics["mse"],
-                    "train_rmse": train_metrics["rmse"],
-                    "train_mae": train_metrics["mae"],
-                    "train_r2": train_metrics["r2"],
-                    "train_pfa_rmse_g": train_metrics["pfa_rmse_g"],
-                    "val_mse": val_metrics["mse"],
-                    "val_rmse": val_metrics["rmse"],
-                    "val_mae": val_metrics["mae"],
-                    "val_r2": val_metrics["r2"],
-                    "val_pfa_rmse_g": val_metrics["pfa_rmse_g"],
-                    "lr": optimizer.param_groups[0]["lr"],
-                    "epoch_s": epoch_s,
-                    "gpu_peak_gb": gpu_peak,
-                }
-            )
+            row = {
+                "epoch": epoch,
+                "train_loss": train_metrics["loss"],
+                "train_mse": train_metrics["mse"],
+                "train_pfa_mse_g2": train_metrics["pfa_mse_g2"],
+                "val_loss": val_metrics["loss"],
+                "val_mse": val_metrics["mse"],
+                "val_pfa_mse_g2": val_metrics["pfa_mse_g2"],
+                "lr": optimizer.param_groups[0]["lr"],
+                "epoch_s": epoch_s,
+                "gpu_peak_gb": gpu_peak,
+            }
+            writer.writerow(row)
             f.flush()
-            print(
+            curve_rows.append(row)
+            save_training_curves(curve_rows, curves_path)
+            log_line(
                 f"{name} epoch {epoch:03d}/{args.epochs} "
+                f"train_loss={train_metrics['loss']:.6f} val_loss={val_metrics['loss']:.6f} "
                 f"train_mse={train_metrics['mse']:.6f} val_mse={val_metrics['mse']:.6f} "
-                f"val_r2={val_metrics['r2']:.4f} val_pfa={val_metrics['pfa_rmse_g']:.4f}g "
-                f"peak={gpu_peak:.2f}GB"
+                f"val_pfa_mse={val_metrics['pfa_mse_g2']:.6f}g^2 "
+                f"peak={gpu_peak:.2f}GB",
+                console_log,
             )
             if val_metrics["mse"] < best_val:
                 best_val = val_metrics["mse"]
                 best_epoch = epoch
-                save_checkpoint(best_path, model, optimizer, epoch, val_metrics, config)
+                save_checkpoint(best_path, model, optimizer, epoch, val_metrics, config, scheduler=scheduler)
+            save_checkpoint(last_path, model, optimizer, epoch, val_metrics, config, scheduler=scheduler)
             if device == "cuda":
                 torch.cuda.reset_peak_memory_stats()
 
@@ -345,6 +407,15 @@ def train_one_structure(name: str, meta: dict, split, args) -> dict:
         show_progress=not args.no_progress,
         max_batches=args.max_test_batches,
     )
+    test_metrics_path = run_dir / "test_metrics.json"
+    test_metrics_path.write_text(json.dumps(test_metrics, indent=2), encoding="utf-8")
+    with console_log_path.open("a", encoding="utf-8") as console_log:
+        log_line(
+            f"{name} final test: test_mse={test_metrics['mse']:.6f} "
+            f"test_pfa_mse={test_metrics['pfa_mse_g2']:.6f}g^2 "
+            f"best_epoch={best_epoch}",
+            console_log,
+        )
     summary = {
         "structure_id": name,
         "paper_label": meta["paper_label"],
@@ -353,11 +424,18 @@ def train_one_structure(name: str, meta: dict, split, args) -> dict:
         "height_m": meta["height_m"],
         "best_val_mse": best_val,
         "best_epoch": best_epoch,
+        "test_mse": test_metrics["mse"],
+        "test_pfa_mse_g2": test_metrics["pfa_mse_g2"],
         "test_metrics": test_metrics,
         "train_time_s": time.time() - start,
         "peak_gpu_gb": peak_gb,
         "best_checkpoint": str(best_path),
+        "last_checkpoint": str(last_path),
         "config": str(run_dir / "config.json"),
+        "training_log_csv": str(log_path),
+        "training_console_log": str(console_log_path),
+        "training_curves_png": str(curves_path),
+        "test_metrics_json": str(test_metrics_path),
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
     print(f"{name} summary saved to {run_dir / 'summary.json'}")

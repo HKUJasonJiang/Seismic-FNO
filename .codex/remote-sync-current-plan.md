@@ -241,6 +241,13 @@ Verified local active files:
 
 ### Remaining Before Full O2
 
-- XG-Boost-1 is clear to run full O2 after pulling `revise`.
+- XG-Boost-1 full O2 has been started from a clean export of `origin/revise` at `/home/jason/Seismic-FNO-O2-20260609`.
 - O2 must remain `partial` until the planned reduced-data matrix is completed and uploaded as `experiments/O2_data_efficiency/2026-06-xx_xgb1_final/`.
 - The HF write token was used only as a temporary command environment variable for uploads; it should be rotated after this sync because it appeared in chat context.
+
+O2 run monitor:
+
+- PID: `189895`
+- Log: `/home/jason/Seismic-FNO-O2-20260609/6-code/O2-data-efficiency/results/logs/o2_xgb1_full_sequential_20260609_070936.log`
+- GPU: single RTX PRO 6000 Blackwell, queue order `FNO-Large -> Transformer -> BiLSTM`
+- First verified active run: `FNO-Large E-AC80`

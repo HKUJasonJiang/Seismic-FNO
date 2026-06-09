@@ -48,6 +48,14 @@ Backup checkpoints before sync:
 
 Critical reading note: O1 full-data baseline does **not** show FNO-Large as the best single-structure full-data model. The current O1 ranking is BiLSTM first, Transformer second, FNO-Large third by test MSE/R2. The paper story should therefore use O1 as a fair baseline calibration and shift FNO claims toward multi-structure, data-efficiency, and engineering/FEMA usefulness.
 
+O2 full run started on XG-Boost-1 after sync:
+
+- Worktree/export: `/home/jason/Seismic-FNO-O2-20260609`
+- PID: `189895`
+- Log: `/home/jason/Seismic-FNO-O2-20260609/6-code/O2-data-efficiency/results/logs/o2_xgb1_full_sequential_20260609_070936.log`
+- Queue order: `FNO-Large -> Transformer -> BiLSTM`
+- Current first run at launch verification: `FNO-Large E-AC80`
+
 ---
 
 ## 1. Current Big Picture

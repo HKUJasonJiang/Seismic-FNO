@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import csv
 import json
+import math
 from pathlib import Path
 import random
 import sys
@@ -25,11 +26,11 @@ CODE_DIR = O1_DIR.parent
 PROJECT_ROOT = CODE_DIR.parent
 UPSTREAM_DIR = CODE_DIR / "shared" / "upstream" / "Seismic-FNO-clean"
 UPSTREAM_MODULE_DIR = UPSTREAM_DIR / "module"
+PROJECT_MODULE_DIR = PROJECT_ROOT / "module"
 UTILS_DIR = CODE_DIR / "shared" / "utils"
-sys.path.insert(0, str(SCRIPT_DIR))
-sys.path.insert(0, str(UPSTREAM_DIR))
-sys.path.insert(0, str(UPSTREAM_MODULE_DIR))
-sys.path.insert(0, str(UTILS_DIR))
+for path in (SCRIPT_DIR, UPSTREAM_DIR, UPSTREAM_MODULE_DIR, PROJECT_ROOT, PROJECT_MODULE_DIR, UTILS_DIR):
+    if path.exists():
+        sys.path.insert(0, str(path))
 
 from baseline_models import BASELINE_REGISTRY, build_model, count_parameters  # noqa: E402
 from dataprep_v2 import DynamicDataset  # type: ignore  # noqa: E402
@@ -38,6 +39,20 @@ from splits import make_fixed_474_split, save_split  # noqa: E402
 
 
 DEFAULT_BASE_DATA = Path(r"D:\BaiduNetdiskDownload\SesimicTransformerData")
+
+
+class NonFiniteTrainingError(RuntimeError):
+    def __init__(self, *, phase: str, batch_idx: int, loss: float | None = None, grad_norm: float | None = None):
+        self.phase = phase
+        self.batch_idx = batch_idx
+        self.loss = loss
+        self.grad_norm = grad_norm
+        parts = [f"Non-finite value detected during {phase}", f"batch={batch_idx}"]
+        if loss is not None:
+            parts.append(f"loss={loss}")
+        if grad_norm is not None:
+            parts.append(f"grad_norm={grad_norm}")
+        super().__init__(", ".join(parts))
 
 
 def set_seed(seed: int) -> None:
@@ -66,6 +81,7 @@ def run_epoch(
     desc: str = "",
     show_progress: bool = True,
     log_interval: int = 100,
+    grad_clip: float | None = None,
 ) -> dict:
     train_mode = optimizer is not None
     model.train(train_mode)
@@ -73,6 +89,7 @@ def run_epoch(
     pfa = PFAMeter()
     loss_sum = 0.0
     n_batches = 0
+    max_grad_norm = 0.0
     iterator = loader
     if show_progress and tqdm is not None:
         iterator = tqdm(loader, desc=desc, unit="batch", dynamic_ncols=True)
@@ -83,8 +100,25 @@ def run_epoch(
         with torch.set_grad_enabled(train_mode):
             pred = model(x)
             loss = criterion(pred, y)
+            if not torch.isfinite(loss).item():
+                raise NonFiniteTrainingError(phase=desc, batch_idx=batch_idx, loss=float(loss.detach().cpu().item()))
             if train_mode:
                 loss.backward()
+                if grad_clip is not None and grad_clip > 0:
+                    grad_norm = torch.nn.utils.clip_grad_norm_(
+                        model.parameters(),
+                        max_norm=grad_clip,
+                        error_if_nonfinite=False,
+                    )
+                    grad_norm_value = float(grad_norm.detach().cpu().item())
+                    if not math.isfinite(grad_norm_value):
+                        raise NonFiniteTrainingError(
+                            phase=desc,
+                            batch_idx=batch_idx,
+                            loss=float(loss.detach().cpu().item()),
+                            grad_norm=grad_norm_value,
+                        )
+                    max_grad_norm = max(max_grad_norm, grad_norm_value)
                 optimizer.step()
         reg.update(pred, y)
         pfa.update(pred, y)
@@ -97,6 +131,8 @@ def run_epoch(
     metrics = reg.compute()
     metrics.update(pfa.compute())
     metrics["loss"] = loss_sum / max(n_batches, 1)
+    if train_mode:
+        metrics["max_grad_norm"] = max_grad_norm
     return metrics
 
 
@@ -114,6 +150,35 @@ def save_checkpoint(path: Path, model, optimizer, epoch: int, metrics: dict, con
     )
 
 
+def write_nonfinite_report(path: Path, model_name: str, exc: NonFiniteTrainingError, args) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    report = {
+        "model": model_name,
+        "message": str(exc),
+        "phase": exc.phase,
+        "batch_idx": exc.batch_idx,
+        "loss": exc.loss,
+        "grad_norm": exc.grad_norm,
+        "lr": effective_lr_for_model(model_name, args),
+        "base_lr": args.lr,
+        "bilstm_lr": args.bilstm_lr,
+        "transformer_lr": args.transformer_lr,
+        "grad_clip": args.grad_clip,
+        "batch_size": args.batch_size,
+        "epochs": args.epochs,
+        "time": time.strftime("%Y-%m-%d %H:%M:%S"),
+    }
+    path.write_text(json.dumps(report, indent=2), encoding="utf-8")
+
+
+def effective_lr_for_model(model_name: str, args) -> float:
+    if model_name == "BiLSTM":
+        return args.bilstm_lr
+    if model_name == "Transformer":
+        return args.transformer_lr
+    return args.lr
+
+
 def train_model(model_name: str, args, train_loader, val_loader) -> dict:
     set_seed(args.seed)
     device = args.device
@@ -123,7 +188,8 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
 
     model = build_model(model_name).to(device)
     stats = count_parameters(model)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.weight_decay)
+    effective_lr = effective_lr_for_model(model_name, args)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=effective_lr, weight_decay=args.weight_decay)
     scheduler = torch.optim.lr_scheduler.StepLR(optimizer, step_size=args.scheduler_step, gamma=args.scheduler_gamma)
     criterion = torch.nn.MSELoss()
 
@@ -135,10 +201,14 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
         "seed": args.seed,
         "epochs": args.epochs,
         "batch_size": args.batch_size,
-        "lr": args.lr,
+        "lr": effective_lr,
+        "base_lr": args.lr,
+        "bilstm_lr": args.bilstm_lr,
+        "transformer_lr": args.transformer_lr,
         "weight_decay": args.weight_decay,
         "scheduler_step": args.scheduler_step,
         "scheduler_gamma": args.scheduler_gamma,
+        "grad_clip": args.grad_clip,
         "split": "fixed_474_test_full_57_factors",
         "params": stats,
     }
@@ -161,6 +231,7 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
             "val_r2",
             "val_pfa_rmse_g",
             "lr",
+            "train_max_grad_norm",
             "epoch_s",
             "gpu_peak_gb",
         ]
@@ -177,6 +248,7 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
                 desc=f"{model_name} e{epoch:03d} train",
                 show_progress=not args.no_progress,
                 log_interval=args.log_interval,
+                grad_clip=args.grad_clip,
             )
             val_metrics = run_epoch(
                 model,
@@ -188,6 +260,8 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
                 show_progress=not args.no_progress,
                 log_interval=args.log_interval,
             )
+            if not all(math.isfinite(float(val_metrics[key])) for key in ("mse", "rmse", "mae")):
+                raise NonFiniteTrainingError(phase=f"{model_name} e{epoch:03d} val metrics", batch_idx=0)
             scheduler.step()
             epoch_s = time.time() - epoch_start
             gpu_peak = torch.cuda.max_memory_allocated() / 1024**3 if device == "cuda" else 0.0
@@ -205,6 +279,7 @@ def train_model(model_name: str, args, train_loader, val_loader) -> dict:
                     "val_r2": val_metrics["r2"],
                     "val_pfa_rmse_g": val_metrics["pfa_rmse_g"],
                     "lr": optimizer.param_groups[0]["lr"],
+                    "train_max_grad_norm": train_metrics.get("max_grad_norm", 0.0),
                     "epoch_s": epoch_s,
                     "gpu_peak_gb": gpu_peak,
                 }
@@ -241,7 +316,10 @@ def main() -> None:
     parser.add_argument("--batch_size", type=int, required=True)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--lr", type=float, default=1e-3)
+    parser.add_argument("--bilstm_lr", type=float, default=3e-4)
+    parser.add_argument("--transformer_lr", type=float, default=3e-4)
     parser.add_argument("--weight_decay", type=float, default=1e-4)
+    parser.add_argument("--grad_clip", type=float, default=1.0)
     parser.add_argument("--scheduler_step", type=int, default=20)
     parser.add_argument("--scheduler_gamma", type=float, default=0.5)
     parser.add_argument("--num_workers", type=int, default=0)
@@ -273,7 +351,13 @@ def main() -> None:
     for model_name in args.models:
         if model_name not in BASELINE_REGISTRY:
             raise ValueError(f"Unknown model {model_name}. Options: {list(BASELINE_REGISTRY)}")
-        summaries.append(train_model(model_name, args, train_loader, val_loader))
+        try:
+            summaries.append(train_model(model_name, args, train_loader, val_loader))
+        except NonFiniteTrainingError as exc:
+            report_path = Path(args.output_dir) / model_name / "nonfinite_report.json"
+            write_nonfinite_report(report_path, model_name, exc, args)
+            print(f"{exc}. Report saved to {report_path}", flush=True)
+            raise SystemExit(2) from exc
 
     output_dir = Path(args.output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

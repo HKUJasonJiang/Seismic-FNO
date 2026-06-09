@@ -24,13 +24,14 @@ from torch.utils.data import DataLoader
 SCRIPT_DIR = Path(__file__).resolve().parent
 O1_DIR = SCRIPT_DIR.parent
 CODE_DIR = O1_DIR.parent
+PROJECT_ROOT = CODE_DIR.parent
 UPSTREAM_DIR = CODE_DIR / "shared" / "upstream" / "Seismic-FNO-clean"
 UPSTREAM_MODULE_DIR = UPSTREAM_DIR / "module"
+PROJECT_MODULE_DIR = PROJECT_ROOT / "module"
 UTILS_DIR = CODE_DIR / "shared" / "utils"
-sys.path.insert(0, str(SCRIPT_DIR))
-sys.path.insert(0, str(UPSTREAM_DIR))
-sys.path.insert(0, str(UPSTREAM_MODULE_DIR))
-sys.path.insert(0, str(UTILS_DIR))
+for path in (SCRIPT_DIR, UPSTREAM_DIR, UPSTREAM_MODULE_DIR, PROJECT_ROOT, PROJECT_MODULE_DIR, UTILS_DIR):
+    if path.exists():
+        sys.path.insert(0, str(path))
 
 from baseline_models import count_parameters  # noqa: E402
 from dataprep_v2 import DynamicDataset  # type: ignore  # noqa: E402

@@ -1,0 +1,6 @@
+Method: NigamJennings
+Number of GMs: 4
+Damp: 0.05
+dt (calculation) (s): 0.02
+Calculation Time (s): 0.0054817
+Saving Time (s): 0.0024345

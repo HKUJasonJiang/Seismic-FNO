@@ -211,6 +211,7 @@ class PatchTransformer(nn.Module):
         self.patch_size = patch_size
         self.n_patches = seq_len // patch_size
         self.patch_embed = nn.Linear(patch_size * in_channels, d_model)
+        self.input_norm = nn.LayerNorm(d_model)
         self.pos_embed = nn.Parameter(torch.randn(1, self.n_patches, d_model) * 0.02)
         layer = nn.TransformerEncoderLayer(
             d_model=d_model,
@@ -219,8 +220,10 @@ class PatchTransformer(nn.Module):
             dropout=dropout,
             activation="gelu",
             batch_first=True,
+            norm_first=True,
         )
         self.encoder = nn.TransformerEncoder(layer, num_layers=n_layers)
+        self.output_norm = nn.LayerNorm(d_model)
         self.output_proj = nn.Linear(d_model, patch_size * out_channels)
         self.out_channels = out_channels
 
@@ -233,9 +236,9 @@ class PatchTransformer(nn.Module):
         n_patches = padded_time // self.patch_size
         x = x.reshape(batch, channels, n_patches, self.patch_size)
         x = x.permute(0, 2, 1, 3).reshape(batch, n_patches, channels * self.patch_size)
-        x = self.patch_embed(x) + self.pos_embed[:, :n_patches, :]
+        x = self.input_norm(self.patch_embed(x)) + self.pos_embed[:, :n_patches, :]
         x = self.encoder(x)
-        x = self.output_proj(x)
+        x = self.output_proj(self.output_norm(x))
         x = x.reshape(batch, n_patches, self.out_channels, self.patch_size)
         x = x.permute(0, 2, 1, 3).reshape(batch, self.out_channels, padded_time)
         return x[:, :, :time]

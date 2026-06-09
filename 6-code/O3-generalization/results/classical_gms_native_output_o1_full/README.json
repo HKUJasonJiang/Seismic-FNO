@@ -1,0 +1,4 @@
+{
+  "caveat": "Model predictions are native-length outputs. Available roof-response GT files are 50Hz, so GT is interpolated to the native GM/output time axis for visualization and metrics.",
+  "output_dir": "/data/home/jason/Seismic-FNO/6-code/O3-generalization/results/classical_gms_native_output_o1_full"
+}

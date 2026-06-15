@@ -11,6 +11,7 @@ A training framework for FNO-based seismic floor acceleration response predictio
 - [Module](#module)
 - [Requirements](#requirements)
 - [Quick Start — Training](#quick-start--training)
+- [Paper Artifacts](#paper-artifacts)
 
 ---
 
@@ -62,6 +63,14 @@ Run all cells top-to-bottom. The notebook will:
 ## Overview
 
 This project implements a Fourier Neural Operator (FNO v1.0+) for predicting structural floor acceleration response to seismic ground motions (regression task). It includes a standard training script and an efficiency analysis script for studying the effect of dataset size on model performance.
+
+---
+
+## Paper Artifacts
+
+Paper reproduction artifacts are indexed in [`ARTIFACTS.md`](ARTIFACTS.md).
+Large checkpoints and result bundles live in the Hugging Face dataset
+`JasonXF/SeFNO`; Git tracks code, scripts, configs, and lightweight summaries.
 
 ---
 

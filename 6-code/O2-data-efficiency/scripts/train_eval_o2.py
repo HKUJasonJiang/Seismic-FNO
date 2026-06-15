@@ -7,6 +7,7 @@ supervised train/validation pool by GM count and/or AC scale count.
 from __future__ import annotations
 
 import argparse
+import copy
 import csv
 import json
 import math
@@ -52,10 +53,14 @@ EFFICIENCY_CONFIGS: dict[str, dict[str, int | str]] = {
     "E-GM60": {"gms": 1800, "scales": 57, "axis": "gm"},
     "E-GM40": {"gms": 1200, "scales": 57, "axis": "gm"},
     "E-GM20": {"gms": 600, "scales": 57, "axis": "gm"},
+    "E-GM10": {"gms": 300, "scales": 57, "axis": "gm"},
+    "E-GM05": {"gms": 150, "scales": 57, "axis": "gm"},
     "E-J80": {"gms": 2400, "scales": 46, "axis": "joint"},
     "E-J60": {"gms": 1800, "scales": 34, "axis": "joint"},
     "E-J40": {"gms": 1200, "scales": 23, "axis": "joint"},
     "E-J20": {"gms": 600, "scales": 11, "axis": "joint"},
+    "E-J10": {"gms": 300, "scales": 6, "axis": "joint"},
+    "E-J05": {"gms": 150, "scales": 3, "axis": "joint"},
 }
 
 REDUCED_RUN_IDS = [run_id for run_id in EFFICIENCY_CONFIGS if run_id != "E-Base"]
@@ -89,6 +94,24 @@ def build_o2_model(model_name: str) -> torch.nn.Module:
     return build_model(model_name)
 
 
+def resolve_single_structure_path(path: Path) -> Path:
+    """Return one HDF5 response file, failing loudly for ambiguous directories."""
+    if path.is_file():
+        if path.suffix != ".h5":
+            raise ValueError(f"Building file must be an .h5 file: {path}")
+        return path
+
+    h5_files = sorted(path.glob("*.h5"))
+    if len(h5_files) != 1:
+        names = ", ".join(p.name for p in h5_files) or "none"
+        raise ValueError(
+            "This training script uses models that receive only ground motion as input. "
+            f"Expected exactly one building response .h5, but found {len(h5_files)} in {path}: {names}. "
+            "Pass --building_dir as a single .h5 file for the target structure."
+        )
+    return h5_files[0]
+
+
 def checkpoint_model_name(model_name: str) -> str:
     return "FNO-Large" if model_name == "FNO-Large" else model_name
 
@@ -118,6 +141,7 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
     base_data = Path(args.base_data_dir)
     gm_path = base_data / "MDOF" / "All_GMs" / "GMs_knet_3474_AF_57.h5"
     building_dir = Path(args.building_dir) if args.building_dir else base_data / "MDOF" / "knet-250" / "Data" / "fno"
+    building_path = resolve_single_structure_path(building_dir)
 
     train_gms_used = int(run_cfg["gms"])
     use_scales_count = int(run_cfg["scales"])
@@ -128,9 +152,9 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
     )
     save_split(split, run_dir)
 
-    train_ds = DynamicDataset(str(gm_path), str(building_dir), gm_indices=split.train_indices)
-    val_ds = DynamicDataset(str(gm_path), str(building_dir), gm_indices=split.val_indices)
-    test_ds = DynamicDataset(str(gm_path), str(building_dir), gm_indices=split.test_indices)
+    train_ds = DynamicDataset(str(gm_path), str(building_path), gm_indices=split.train_indices)
+    val_ds = DynamicDataset(str(gm_path), str(building_path), gm_indices=split.val_indices)
+    test_ds = DynamicDataset(str(gm_path), str(building_path), gm_indices=split.test_indices)
     pin = device == "cuda"
     train_loader = DataLoader(train_ds, batch_size=args.batch_size, shuffle=True, num_workers=args.num_workers, pin_memory=pin)
     val_loader = DataLoader(val_ds, batch_size=args.batch_size, shuffle=False, num_workers=args.num_workers, pin_memory=pin)
@@ -168,6 +192,7 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
         "train_samples": len(split.train_indices),
         "val_samples": len(split.val_indices),
         "test_samples": len(split.test_indices),
+        "building_file": str(building_path),
         "scale_indices": split.scale_indices.tolist(),
         "split": "fixed_474_test_full_57_factors_reduced_train_val",
         "params": stats,
@@ -200,6 +225,7 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
     best_val = float("inf")
     best_epoch = 0
     best_path = run_dir / "checkpoints" / f"{checkpoint_model_name(args.model)}_{run_id}_best.pt"
+    best_state = None
     peak_gb = 0.0
     start = time.time()
     log_path = run_dir / "training_log.csv"
@@ -264,7 +290,7 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
                 if val_metrics["mse"] < best_val:
                     best_val = val_metrics["mse"]
                     best_epoch = epoch
-                    save_checkpoint(best_path, model, optimizer, epoch, val_metrics, config)
+                    best_state = {k: (v.detach().cpu().clone() if torch.is_tensor(v) else copy.deepcopy(v)) for k, v in model.state_dict().items()}
                 if device == "cuda":
                     torch.cuda.reset_peak_memory_stats()
     except NonFiniteTrainingError as exc:
@@ -290,16 +316,19 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
         "best_val_mse": best_val,
         "train_time_s": time.time() - start,
         "peak_gpu_gb": peak_gb,
-        "best_checkpoint": str(best_path),
+        "best_checkpoint": "",
         "params": stats,
     }
     (run_dir / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
 
+    if best_state is None:
+        best_state = {k: (v.detach().cpu().clone() if torch.is_tensor(v) else copy.deepcopy(v)) for k, v in model.state_dict().items()}
+
     del model
     if device == "cuda":
         torch.cuda.empty_cache()
-
-    best_model = load_best_model(args.model, best_path, device)
+    best_model = build_o2_model(args.model).to(device)
+    best_model.load_state_dict(best_state, strict=(args.model != "FNO-Large"))
     metrics = evaluate_model(best_model, test_loader, device)
     row = {
         "model": args.model,
@@ -314,7 +343,7 @@ def train_one(args: argparse.Namespace, run_id: str, run_cfg: dict[str, int | st
         "best_epoch": best_epoch,
         "train_time_s": summary["train_time_s"],
         "peak_gpu_gb": peak_gb,
-        "checkpoint": str(best_path),
+        "checkpoint": "",
         **stats,
         **metrics,
     }

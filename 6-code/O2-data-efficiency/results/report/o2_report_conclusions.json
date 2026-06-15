@@ -1,5 +1,0 @@
-[
-  "FNO-Large: E-Base MSE=0.0449, R2=0.9423; reduced runs pending.",
-  "Transformer: E-Base MSE=0.0214, R2=0.9725; reduced runs pending.",
-  "BiLSTM: E-Base MSE=0.0099, R2=0.9872; reduced runs pending."
-]

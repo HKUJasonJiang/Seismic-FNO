@@ -25,7 +25,7 @@ Artifact runs:
 
 ```text
 experiments/O1_baseline/2026-06-09_xgb2_full_bs64/
-experiments/O2_data_efficiency/2026-06-09_xgb2_partial_EAC80/
+experiments/O2_data_efficiency/2026-06-09_xgb2_partial_EAC80/  # historical partial only
 experiments/O3_generalization/2026-06-09_xgb2_pga_sampling_gmood/
 experiments/O4_multi_structure/2026-06-09_xgb1_fno_large_6struct/
 experiments/O5_fema_p58/2026-06-09_local_F6_sample/
@@ -34,7 +34,7 @@ experiments/O5_fema_p58/2026-06-09_local_F6_sample/
 Pending upload after a write-scoped HF token is available:
 
 ```text
-experiments/O2_data_efficiency/2026-06-15_xgb1_final/
+experiments/O2_data_efficiency/2026-06-15_xgb1_final/  # complete final report, staged pending HF write token
 experiments/O5_fema_p58/2026-06-15_local_multistructure/
 ```
 
@@ -42,9 +42,13 @@ experiments/O5_fema_p58/2026-06-15_local_multistructure/
 
 - O1: baseline and FNO checkpoints are available in
   `experiments/O1_baseline/2026-06-09_xgb2_full_bs64/artifact/runs/`.
-- O2: the latest XG-Boost-1 final report has no checkpoints under the remote
-  O2 results directory. The older partial EAC80 run has FNO-Large and BiLSTM
-  checkpoints in HF.
+- O2: the latest XG-Boost-1 final result is complete as a 42-row
+  `o2_f6_data_efficiency_three_models.csv` report covering AC/GM/Joint
+  data-efficiency regimes. A fresh SSH search of the XG-Boost-1 final
+  `results` directory found no `.pt`, `.pth`, `.ckpt`, or `.safetensors`
+  checkpoints; the final O2 artifact is therefore a report/results package,
+  not a checkpoint package. The older XG-Boost-2 EAC80 path is only a
+  historical partial cache with FNO-Large and BiLSTM checkpoints.
 - O3: PGA and sampling OOD checkpoints are available in
   `experiments/O3_generalization/2026-06-09_xgb2_pga_sampling_gmood/artifact/`.
 - O4: six-structure FNO-Large checkpoints and manifest are available in
